@@ -1,5 +1,14 @@
-version: '3'
+version: "3"
 services:
+  mongo-dev:
+    image: mongo:4.4.6-bionic
+
+  db-dev:
+    image: postgres:13.2-alpine
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=todo-dev
 
   server-dev:
     build:
@@ -16,16 +25,6 @@ services:
       - ./var/www/html/images:/var/www/html/images
       - ./server:/server
       - /server/node_modules
-
-  mongo-dev:
-    image: mongo:4.4.6-bionic
-
-  db-dev:
-    image: postgres:13.2-alpine
-    environment:
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=todo-dev
 
 volumes:
   server-dev:

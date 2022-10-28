@@ -1,6 +1,5 @@
-version: '3'
+version: "3"
 services:
-
   client-prod:
     build:
       context: ./client
@@ -11,20 +10,6 @@ services:
       - server-prod
     volumes_from:
       - server-prod:ro
-
-  server-prod:
-    build:
-      context: ./server
-      dockerfile: Dockerfile-production
-    environment:
-      NODE_ENV: production
-    ports:
-      - "3000:3000"
-    depends_on:
-      - db-prod
-      - mongo-prod
-    volumes:
-      - /var/www/html/images:/var/www/html/images
 
   db-prod:
     image: postgres:13.2-alpine
@@ -45,6 +30,20 @@ services:
     ports:
       - "27017:27017"
     command: mongod --smallfiles --logpath=/dev/null
+
+  server-prod:
+    build:
+      context: ./server
+      dockerfile: Dockerfile-production
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db-prod
+      - mongo-prod
+    volumes:
+      - /var/www/html/images:/var/www/html/images
 
 volumes:
   server-prod:
