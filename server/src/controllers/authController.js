@@ -74,6 +74,40 @@ module.exports.signUp = async (req, res, next) => {
   try {
     const { body } = req;
     const user = await User.create(body);
+
+    const accessToken = await signJWT(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      ACCESS_TOKEN_SECRET,
+      {
+        expiresIn: ACCESS_TOKEN_TIME,
+      }
+    );
+
+    const refreshToken = await signJWT(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      REFRESH_TOKEN_SECRET,
+      {
+        expiresIn: REFRESH_TOKEN_TIME,
+      }
+    );
+
+    await User.createRefreshToken({ value: refreshToken });
+
+    res.status(201).send({
+      data: user,
+      tokenPair: {
+        access: accessToken,
+        refresh: refreshToken,
+      },
+    });
   } catch (error) {
     next(error);
   }
