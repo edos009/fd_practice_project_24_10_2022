@@ -1,8 +1,5 @@
 version: "3"
 services:
-  mongo-dev:
-    image: mongo:4.4.6-bionic
-
   db-dev:
     image: postgres:13.2-alpine
     environment:
@@ -10,6 +7,9 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_DB=todo-dev
 
+  mongo-dev:
+    image: mongo:4.4.6-bionic
+    
   server-dev:
     build:
       context: ./server
@@ -25,6 +25,6 @@ services:
       - ./var/www/html/images:/var/www/html/images
       - ./server:/server
       - /server/node_modules
-
+    
 volumes:
   server-dev:

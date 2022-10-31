@@ -20,17 +20,6 @@ services:
     ports:
       - "5432:5432"
 
-  mongo-prod:
-    image: mongo:4.4.6-bionic
-    environment:
-      - MONGO_DATA_DIR=/data/db
-      - MONGO_LOG_DIR=/dev/null
-    volumes:
-      - ./data/db:/data/db
-    ports:
-      - "27017:27017"
-    command: mongod --smallfiles --logpath=/dev/null
-
   server-prod:
     build:
       context: ./server
@@ -44,6 +33,17 @@ services:
       - mongo-prod
     volumes:
       - /var/www/html/images:/var/www/html/images
+
+  mongo-prod:
+    image: mongo:4.4.6-bionic
+    environment:
+      - MONGO_DATA_DIR=/data/db
+      - MONGO_LOG_DIR=/dev/null
+    volumes:
+      - ./data/db:/data/db
+    ports:
+      - "27017:27017"
+    command: mongod --smallfiles --logpath=/dev/null
 
 volumes:
   server-prod:

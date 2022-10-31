@@ -1,67 +1,30 @@
-const { promisify } = require("util");
 const createHttpError = require("http-errors");
-const { User } = require("../models");
-const jwt = require("jsonwebtoken");
-const {
-  ACCESS_TOKEN_SECRET,
-  REFRESH_TOKEN_SECRET,
-  ACCESS_TOKEN_TIME,
-  REFRESH_TOKEN_TIME,
-  MAX_DEVICES_AMOUNT,
-} = require("../constants");
-
-const signJWT = promisify(jwt.sign);
+const { User, RefreshToken } = require("../models");
+const { MAX_DEVICES_AMOUNT } = require("../constants");
+const JwtService = require("../services/jwtService");
 
 module.exports.signIn = async (req, res, next) => {
   try {
     const {
       body: { email, password },
     } = req;
-    // find user by unique email
     const user = await User.findOne({
       where: { email },
     });
-    // compare password (hash)
     if (user && (await user.comparePassword(password))) {
-      // create token pair
-      const accessToken = await signJWT(
-        {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-        },
-        ACCESS_TOKEN_SECRET,
-        {
-          expiresIn: ACCESS_TOKEN_TIME,
-        }
-      );
+      const tokenPair = await JwtService.createTokenPair(user);
 
-      const refreshToken = await signJWT(
-        {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-        },
-        REFRESH_TOKEN_SECRET,
-        {
-          expiresIn: REFRESH_TOKEN_TIME,
-        }
-      );
-      // send user with token
       if ((await user.countRefreshTokens()) >= MAX_DEVICES_AMOUNT) {
         const oldestToken = await user.getRefreshTokens({
           order: [["updatedAt", "DESC"]],
         });
-        await oldestToken.update({ value: refreshToken });
+        await oldestToken.update({ value: tokenPair.refresh });
       } else {
-        await User.createRefreshToken({ value: refreshToken });
+        await user.createRefreshToken({ value: tokenPair.refresh });
       }
-      res.status(201).send({
+      return res.status(201).send({
         data: user,
-        tokenPair: {
-          access: accessToken,
-          refresh: refreshToken,
-        },
+        tokenPair,
       });
     }
     next(createHttpError(401, "Unauthorized"));
@@ -75,38 +38,13 @@ module.exports.signUp = async (req, res, next) => {
     const { body } = req;
     const user = await User.create(body);
 
-    const accessToken = await signJWT(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      ACCESS_TOKEN_SECRET,
-      {
-        expiresIn: ACCESS_TOKEN_TIME,
-      }
-    );
+    const tokenPair = await JwtService.createTokenPair(user);
 
-    const refreshToken = await signJWT(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      REFRESH_TOKEN_SECRET,
-      {
-        expiresIn: REFRESH_TOKEN_TIME,
-      }
-    );
-
-    await User.createRefreshToken({ value: refreshToken });
+    await user.createRefreshToken({ value: tokenPair.refresh });
 
     res.status(201).send({
       data: user,
-      tokenPair: {
-        access: accessToken,
-        refresh: refreshToken,
-      },
+      tokenPair,
     });
   } catch (error) {
     next(error);
@@ -115,6 +53,25 @@ module.exports.signUp = async (req, res, next) => {
 
 module.exports.refresh = async (req, res, next) => {
   try {
+    const {
+      body: { refreshToken },
+    } = req;
+
+    const refreshTokenInstance = await RefreshToken.findOne({
+      where: {
+        value: refreshToken,
+      },
+    });
+
+    const user = await refreshTokenInstance.getUser();
+
+    const tokenPair = await JwtService.createTokenPair(user);
+
+    await refreshTokenInstance.update({ value: tokenPair.refresh });
+    res.status(200).send({
+      data: user,
+      tokenPair,
+    });
   } catch (error) {
     next(error);
   }
