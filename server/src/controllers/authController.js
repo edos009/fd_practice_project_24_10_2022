@@ -1,31 +1,21 @@
 const createHttpError = require("http-errors");
 const { User, RefreshToken } = require("../models");
-const { MAX_DEVICES_AMOUNT } = require("../constants");
-const JwtService = require("../services/jwtService");
+const AuthService = require("../services/authService");
 
 module.exports.signIn = async (req, res, next) => {
   try {
     const {
       body: { email, password },
     } = req;
+
     const user = await User.findOne({
       where: { email },
     });
-    if (user && (await user.comparePassword(password))) {
-      const tokenPair = await JwtService.createTokenPair(user);
 
-      if ((await user.countRefreshTokens()) >= MAX_DEVICES_AMOUNT) {
-        const oldestToken = await user.getRefreshTokens({
-          order: [["updatedAt", "DESC"]],
-        });
-        await oldestToken.update({ value: tokenPair.refresh });
-      } else {
-        await user.createRefreshToken({ value: tokenPair.refresh });
-      }
-      return res.status(201).send({
-        data: user,
-        tokenPair,
-      });
+    if (user && (await user.comparePassword(password))) {
+      const data = await AuthService.createSession(user);
+
+      return res.status(201).send({ data });
     }
     next(createHttpError(401, "Unauthorized"));
   } catch (error) {
@@ -36,16 +26,16 @@ module.exports.signIn = async (req, res, next) => {
 module.exports.signUp = async (req, res, next) => {
   try {
     const { body } = req;
+
     const user = await User.create(body);
 
-    const tokenPair = await JwtService.createTokenPair(user);
+    if (user) {
+      const data = await AuthService.createSession(user);
 
-    await user.createRefreshToken({ value: tokenPair.refresh });
+      return res.status(201).send({ data });
+    }
 
-    res.status(201).send({
-      data: user,
-      tokenPair,
-    });
+    next(createHttpError(400, "Bad request"));
   } catch (error) {
     next(error);
   }
@@ -63,15 +53,9 @@ module.exports.refresh = async (req, res, next) => {
       },
     });
 
-    const user = await refreshTokenInstance.getUser();
+    const data = await AuthService.refreshSession(refreshTokenInstance);
 
-    const tokenPair = await JwtService.createTokenPair(user);
-
-    await refreshTokenInstance.update({ value: tokenPair.refresh });
-    res.status(200).send({
-      data: user,
-      tokenPair,
-    });
+    res.status(200).send({ data });
   } catch (error) {
     next(error);
   }
